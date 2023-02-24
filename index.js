@@ -105,6 +105,24 @@ app.post('/api/persons', (request, response) => {
   response.json(newContact);
 });
 
+app.put('/api/persons/:id', (request, response) => {
+  const id = Number(request.params.id);
+  const body = request.body;
+  const existingContactIdx = contacts.findIndex(c => c.id === id);
+  if (existingContactIdx < 0) {
+    console.log('Failed at updating contact with id' + id);
+    console.log('All contacts are: ', contacts);
+    return response
+      .status(404)
+      .json({ error: 'cannot update contact, id not found' })
+      .end();
+  }
+
+  contacts[existingContactIdx] = { ...contacts[existingContactIdx], ...body };
+  console.log('Updated contact: ', contacts[existingContactIdx]);
+  response.status(200).send(contacts[existingContactIdx]);
+});
+
 const getRandomId = () => Math.floor(Math.random() * 10000000000000);
 
 const PORT = process.env.PORT || 3001;
