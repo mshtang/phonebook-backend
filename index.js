@@ -3,6 +3,7 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const Contact = require('./models/contact');
+const contact = require('./models/contact');
 
 const app = express();
 app.use(express.json());
@@ -19,14 +20,9 @@ app.use(
   )
 );
 
-app.get('/api/persons', (request, response) => {
-  Contact.find({}).then(contacts => {
-    response.json(contacts);
-  });
-});
-
-app.get('/info', (request, response) => {
-  const p1 = `<h1>Phonebook has info for ${contacts.length} people</h1>`;
+app.get('/info', async (request, response) => {
+  const count = await Contact.count({});
+  const p1 = `<h1>Phonebook has info for ${count} people</h1>`;
   const today = new Date();
   const weekday = [
     'Sunday',
@@ -41,70 +37,62 @@ app.get('/info', (request, response) => {
   response.send(`${p1}${p2}`);
 });
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id);
-  const contact = contacts.find(c => c.id === id);
-
-  if (!contact) {
-    return response
-      .status(404)
-      .send(`Contact with id ${id} cannot be found`)
-      .end();
+app.get('/api/persons', async (_, res) => {
+  try {
+    const contacts = await Contact.find();
+    res.json(contacts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  response.json(contact);
 });
 
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id);
-  contacts = contacts.filter(c => c.id !== id);
-  response.status(204).end();
+app.get('/api/persons/:id', async (req, res) => {
+  try {
+    const result = await Contact.findById(req.params.id);
+    if (!result) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/persons', (request, response) => {
-  const body = request.body;
-
-  if (!body.name) {
-    return response.status(400).json({ error: 'name missing' }).end();
+app.delete('/api/persons/:id', async (req, res) => {
+  try {
+    const result = await Contact.findByIdAndDelete(req.params.id);
+    if (!result) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    res.json({ message: 'Contact deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  if (!body.number) {
-    return response.status(400).json({ error: 'number missing' }).end();
-  }
-
-  if (contacts.find(c => c.name === body.name)) {
-    return response.status(400).json({ error: 'name exists' }).end();
-  }
-
-  const newContact = {
-    id: getRandomId(),
-    name: body.name,
-    number: body.number,
-  };
-
-  contacts = contacts.concat(newContact);
-  response.json(newContact);
 });
 
-app.put('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id);
-  const body = request.body;
-  const existingContactIdx = contacts.findIndex(c => c.id === id);
-  if (existingContactIdx < 0) {
-    console.log('Failed at updating contact with id' + id);
-    console.log('All contacts are: ', contacts);
-    return response
-      .status(404)
-      .json({ error: 'cannot update contact, id not found' })
-      .end();
+app.post('/api/persons', async (req, res) => {
+  try {
+    const contact = new Contact(req.body);
+    await contact.save();
+    res.json(contact);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-
-  contacts[existingContactIdx] = { ...contacts[existingContactIdx], ...body };
-  console.log('Updated contact: ', contacts[existingContactIdx]);
-  response.status(200).send(contacts[existingContactIdx]);
 });
 
-const getRandomId = () => Math.floor(Math.random() * 10000000000000);
+app.put('/api/persons/:id', async (req, res) => {
+  try {
+    const result = await Contact.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!contact) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
